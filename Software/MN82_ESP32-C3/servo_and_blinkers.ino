@@ -22,17 +22,17 @@ void blinkers()
   // maybe I'll migrate to ISR later
   // throttled_print("SERVO", servo_width, 25);
 
-  if (configassist_running)
+  if (configassist_running || web_debug)
   {
     static bool indicator_state = 1;
 
-    if (!indicator_state && blinkers_indicator_chrono.hasPassed(950, 1))
+    if (!indicator_state && chrono_blinkers_indicator.hasPassed(950, 1))
     {
       digitalWrite(CORN_LEFT, 0);
       digitalWrite(CORN_RIGHT, 0);
       indicator_state = 1;
     }
-    else if (indicator_state && blinkers_indicator_chrono.hasPassed(50, 1))
+    else if (indicator_state && chrono_blinkers_indicator.hasPassed(50, 1))
     {
       digitalWrite(CORN_LEFT, 1);
       digitalWrite(CORN_RIGHT, 1);
@@ -80,7 +80,6 @@ void blinkers()
       if (chrono_blinkers.hasPassed(BLINK_ON_TIME, 1))
       {
         // blink both lamps simultaneously
-        //      chrono_blinkers.restart();
 
         led_state = !led_state;
         digitalWrite(CORN_LEFT, led_state);
@@ -147,7 +146,6 @@ void blinkers()
             if (chrono_blinkers.hasPassed(BLINK_ON_TIME, 1))
             {
               // blink the right cornering signal
-              //            chrono_blinkers.restart();
 
               led_state = !led_state;
               digitalWrite(CORN_RIGHT, led_state);
@@ -176,7 +174,6 @@ void blinkers()
             if (chrono_blinkers.hasPassed(BLINK_ON_TIME, 1))
             {
               // blink the left cornering signal
-              //            chrono_blinkers.restart();
 
               led_state = !led_state;
               digitalWrite(CORN_LEFT, led_state);
@@ -190,12 +187,14 @@ void blinkers()
         {
           first_run = 1;
           delay_flash = 1;
-          was_left = 0;
-          was_right = 0;
           need_sync = 0;
 
-          digitalWrite(CORN_LEFT, 1);
-          digitalWrite(CORN_RIGHT, 1);
+          if (was_left || was_right)
+          {
+            digitalWrite(CORN_LEFT, 1);
+            digitalWrite(CORN_RIGHT, 1);
+          }
+          was_left = was_right = 0;
         }
       }
     }

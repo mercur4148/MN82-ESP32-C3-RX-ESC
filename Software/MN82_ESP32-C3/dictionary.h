@@ -35,7 +35,7 @@ Blinkers settings:
       checked: True
   - BLINK_TIME:
       label: Lenght of half the period
-      range: 100, 600, 10
+      range: 250, 500, 10
       default: 310  
   - BLINK_LEFT_IMMEDIATELY:
       label: Steering value to turn the LEFT blinker ON instantly
@@ -57,16 +57,7 @@ Blinkers settings:
       label: Delay for postponed blinking
       range: 1000, 5000, 100
       default: 3000      
-
-Lighting settings:
-  - USE_FOG:
-      label: Enable or disable fog lamps
-      checked: False
-  - FOG_BRIGHTNESS:
-      label: Fog lamps brightness
-      range: 0, 255, 5
-      default: 60
-      
+     
 Maintenance:
   - DISABLE_MOTOR:
       label: Disable motor for safe servicing
@@ -74,5 +65,5 @@ Maintenance:
   - IDLE_TIME_THRESHOLD:
       label: Time between direction transitions
       range: 5, 255, 5
-      default: 65
+      default: 80
 )~";

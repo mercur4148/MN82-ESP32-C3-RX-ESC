@@ -1,3 +1,87 @@
+void IRAM_ATTR hallISR()
+{
+  uint32_t now = micros();
+
+  if (now - lastPulseTime > DEBOUNCE_TIME)
+  {
+    if (!digitalRead(HALL))
+    {
+      trip_pulses++;
+      odo_pulses++;
+      lastPulseTime = now;
+
+      // TRIP_meter
+      if (trip_pulses >= PULSES_PER_METER)
+      {
+        trip_pulses = 0;
+        trip_centimeters = trip_centimeters + CM_PER_METER_OVERSHOOT;
+        if (trip_centimeters > 100)
+        {
+          trip_meters++;
+          trip_centimeters = trip_centimeters - 100;
+        }
+        trip_meters++;
+      }
+      // TRIP_meter END
+
+      // ODO_meter
+      if (odo_pulses >= PULSES_PER_METER)
+      {
+        odo_pulses = 0;
+        odo_centimeters = odo_centimeters + CM_PER_METER_OVERSHOOT;
+        if (odo_centimeters > 100)
+        {
+          odo_meters++;
+          odo_centimeters = odo_centimeters - 100;
+        }
+        odo_meters++;
+      }
+      // ODO_meter END
+    }
+  }
+}
+
+void IRAM_ATTR phaseA_ISR()
+{
+  bool state = digitalRead(PH_A);
+  if (state)
+  {
+    startTime_A = micros();
+    phaseA_active = true;
+  }
+  else
+  {
+    unsigned long pulse = micros() - startTime_A;
+    if (pulse > 16)
+    {
+      // Ignore glitches
+      phaseA_width = constrain(pulse, 0, 2000);
+    }
+    phaseA_active = false;
+  }
+}
+
+void IRAM_ATTR phaseB_ISR()
+{
+  bool state = digitalRead(PH_B);
+  if (state)
+  {
+    startTime_B = micros();
+    phaseB_active = true;
+  }
+  else
+  {
+    unsigned long pulse = micros() - startTime_B;
+    if (pulse > 16)
+    {
+      // Ignore glitches
+      phaseB_width = constrain(pulse, 0, 2000);
+    }
+    phaseB_active = false;
+  }
+}
+// ChatGPT END
+
 void updateDirection()
 {
   static int8_t preprevDir = 0;  // Stores the direction from two cycles ago
@@ -32,7 +116,7 @@ void updateDirection()
     //      Serial.print(prevDir);
     //      Serial.print(" CD: ");
     //      Serial.println(dir);
-    
+
     if (dir == 0 && abs(prevDir) == 1)
     {
       chrono_time_in_idle.restart();
@@ -94,12 +178,24 @@ void motor_driver()
       ledcWrite(MOT_A, dutyA);
       ledcWrite(MOT_B, dutyB);
       ledcWrite(STOP_ESP, 255);
-      //    digitalWrite(STOP_ESP, 1);
     }
     else
     {
       ledcWrite(MOT_A, 0);
       ledcWrite(MOT_B, 0);
+
+      static bool indicator_state = 1;
+
+      if (!indicator_state && chrono_stop_indicator.hasPassed(500, 1))
+      {
+        ledcWrite(STOP_ESP, 120);
+        indicator_state = 1;
+      }
+      else if (indicator_state && chrono_stop_indicator.hasPassed(500, 1))
+      {
+        ledcWrite(STOP_ESP, 255);
+        indicator_state = 0;
+      }
     }
   }
 
@@ -108,7 +204,6 @@ void motor_driver()
     ledcWrite(MOT_A, PWM_MAX_VALUE);
     ledcWrite(MOT_B, PWM_MAX_VALUE);
     ledcWrite(STOP_ESP, STOP_LIGHT_BRIGHTNESS);
-    // digitalWrite(STOP_ESP, 0);
   }
 
   // debug output
@@ -140,7 +235,6 @@ void motor_brake()
   // motor locked
   digitalWrite(MOT_A, 1);
   digitalWrite(MOT_B, 1);
-  // digitalWrite(STOP_ESP, 0);
   ledcWrite(STOP_ESP, STOP_LIGHT_BRIGHTNESS);
 }
 
@@ -150,6 +244,5 @@ void motor_release()
   // motor unlocked
   digitalWrite(MOT_A, 0);
   digitalWrite(MOT_B, 0);
-  // digitalWrite(STOP_ESP, 1);
   ledcWrite(STOP_ESP, 255);
 }

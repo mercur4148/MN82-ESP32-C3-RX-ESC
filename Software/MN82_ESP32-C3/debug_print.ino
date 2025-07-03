@@ -1,40 +1,58 @@
-void start_webserver()
+bool start_webserial()
 {
-  /*
-    WiFi.setHostname("ssid");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    WiFi.softAP(ssid);
-    Serial.print("1. Connect to Wi-Fi ");
-    Serial.println(ssid);
-    Serial.println("2. Open \"192.168.4.1/webserial\" in browser");
-    webSerial.onMessage([](const std::string & msg) {
-      Serial.println(msg.c_str());
-    });
-    server.onNotFound([](AsyncWebServerRequest * request) {
-      request->redirect("/webserial");
-    });
-    webSerial.begin(&server);
-    server.begin();
-  */
+  setCpuFrequencyMhz(160);
+
+  WiFi.softAP("MN82_debug");
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+
+  webSerial.onMessage([](const std::string & msg)
+  {
+    Serial.println(msg.c_str());
+  });
+
+  webSerial.begin(&Webserial_server);
+  webSerial.setBuffer(255);
+
+  Webserial_server.onNotFound([](AsyncWebServerRequest * request) {
+    request->redirect("/webserial");
+  });
+  Webserial_server.begin();
 
   web_debug = 1;
+  return web_debug;
 }
 
-void stop_webserver()
+bool stop_webserial()
 {
-  /*
-    server.end();
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-    Serial.println("Mischief managed");
+  webSerial.println("Mischief managed");
 
-    // IDK why, but server is broken after restarting
-    // WebSerial.println("something") doesn't show in remote console
-    // remote to ESP messages still work fine \_(O_o)_/
-  */
+  Webserial_server.end();
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
 
   web_debug = 0;
+  return web_debug;
+}
+
+void webprint()
+{
+  webSerial.println("ODOMETER:");
+  webSerial.print(odo_meters);
+  webSerial.print(".");
+  if (odo_centimeters < 10) webSerial.print("0");
+  webSerial.println(odo_centimeters);
+  webSerial.println("TRIP:");
+  webSerial.print(trip_meters);
+  webSerial.print(".");
+  if (trip_centimeters < 10) webSerial.print("0");
+  webSerial.println(trip_centimeters);
+  webSerial.print("odo_pulses ");
+  webSerial.println(odo_pulses);
+  webSerial.print("trip_pulses ");
+  webSerial.println(trip_pulses);
+  webSerial.print("BATTERY: ");
+  webSerial.println(get_battery_voltage());
+  webSerial.println("------------");
 }
 
 void throttled_print(String label, uint16_t value, uint16_t throttle_rate)

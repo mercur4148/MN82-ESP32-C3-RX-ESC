@@ -3,7 +3,11 @@
 // PCB routing:   18.01.25
 // SW:            11.03.25, 13.03.25, 14, 16, 19, 25, 28, 29
 //                03.04.25, 04, 05, 06, 12, 19
-//                10.05.25, 11, 12
+//                10.05.25, 11, 12, 14
+// ESP32C3  Dev Module
+// USB CDC on Boot: Disabled
+// CPU Frequency: 40 MHz
+// Partition Scheme: Minimal SPIFFS
 #include <Arduino.h>
 #include <Smooth.h>
 // can get from Library Manager
@@ -11,8 +15,6 @@
 // can get from Library Manager
 #include <Chrono.h>
 // can get from Library Manager
-//#include <Preferences.h>
-//Preferences ecu_data;
 
 // settings
 // lights
@@ -66,33 +68,17 @@ uint8_t trip_pulses = 0;
 
 bool update_odo = 0;
 // web
-bool web_debug = 0;
-// global variables END
 
 Chrono chrono_4way;
 Chrono chrono_blinkers;
 Chrono chrono_delayed_blinkers;
 Chrono chrono_time_in_idle;
-//Chrono chrono_webserial;
-Chrono stop_indicator_chrono;
-Chrono blinkers_indicator_chrono;
+Chrono chrono_webserial;
+Chrono chrono_stop_indicator;
+Chrono chrono_blinkers_indicator;
 
 Smooth average(256);
 Button2 button;
-
-// --- web debug
-//#include <WiFi.h>
-//#include <AsyncTCP.h>
-//#include <DNSServer.h>
-//#include <ESPAsyncWebServer.h>
-//#include <WString.h>
-//#include <MycilaWebSerial.h>
-//AsyncWebServer server(80);
-//WebSerial webSerial;
-//
-//const char* ssid = "MN82";
-//const char* password = "";
-//IPAddress apIP(192, 168, 4, 1);
 
 #include "dictionary.h"
 #include <ConfigAssist.h>
@@ -102,95 +88,19 @@ ConfigAssist conf("/MN82_config.ini", VARIABLES_DEF_YAML);
 ConfigAssist odometer("/odometer.ini");
 bool configassist_running = 0;
 
-void IRAM_ATTR hallISR()
-{
-  uint32_t now = micros();
+// --- web debug
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <DNSServer.h>
+#include <ESPAsyncWebServer.h>
+#include <MycilaWebSerial.h>
+AsyncWebServer Webserial_server(80);
+WebSerial webSerial;
+bool web_debug = 0;
 
-  if (now - lastPulseTime > DEBOUNCE_TIME)
-  {
-    if (digitalRead(HALL) == LOW)
-    {
-      trip_pulses++;
-      odo_pulses++;
-      lastPulseTime = now;
-
-      // TRIP_meter
-      if (trip_pulses >= PULSES_PER_METER)
-      {
-        trip_pulses = 0;
-        trip_centimeters = trip_centimeters + CM_PER_METER_OVERSHOOT;
-        if (trip_centimeters > 100)
-        {
-          trip_meters++;
-          trip_centimeters = trip_centimeters - 100;
-        }
-        trip_meters++;
-      }
-      // TRIP_meter END
-
-      // ODO_meter
-      if (odo_pulses >= PULSES_PER_METER)
-      {
-        odo_pulses = 0;
-        odo_centimeters = odo_centimeters + CM_PER_METER_OVERSHOOT;
-        if (odo_centimeters > 100)
-        {
-          odo_meters++;
-          odo_centimeters = odo_centimeters - 100;
-        }
-        odo_meters++;
-      }
-      // ODO_meter END
-    }
-  }
-}
-
-void IRAM_ATTR phaseA_ISR()
-{
-  bool state = digitalRead(PH_A);
-  if (state == HIGH)
-  {
-    startTime_A = micros();
-    phaseA_active = true;
-  }
-  else
-  {
-    unsigned long pulse = micros() - startTime_A;
-    if (pulse > 16)
-    {
-      // Ignore glitches
-      phaseA_width = constrain(pulse, 0, 2000);
-    }
-    phaseA_active = false;
-  }
-}
-
-void IRAM_ATTR phaseB_ISR()
-{
-  bool state = digitalRead(PH_B);
-  if (state == HIGH)
-  {
-    startTime_B = micros();
-    phaseB_active = true;
-  }
-  else
-  {
-    unsigned long pulse = micros() - startTime_B;
-    if (pulse > 16)
-    {
-      // Ignore glitches
-      phaseB_width = constrain(pulse, 0, 2000);
-    }
-    phaseB_active = false;
-  }
-}
-// ChatGPT END
-
-void onDataChanged(String key)
-{
-  // LOG_I("Data changed: %s = %s \n", key.c_str(), conf(key).c_str());
-  // if (key == "display_style") conf.setDisplayType((ConfigAssistDisplayType)conf("display_style").toInt());
-}
+void IRAM_ATTR hallISR();
+void IRAM_ATTR phaseA_ISR();
+void IRAM_ATTR phaseB_ISR();
 
 void setup()
 {
@@ -217,10 +127,8 @@ void setup()
   // blinkers OFF
 
   // stop light OFF
-  //  pinMode(STOP_ESP, OUTPUT);
-  //  digitalWrite(STOP_ESP, 1);
   ledcAttach(STOP_ESP, 1024, 8);
-  ledcWrite(STOP_ESP, 255);
+  ledcWrite(STOP_ESP, 255);     // active LOW
 
   pinMode(SERVO, INPUT);
   pinMode(PH_A, INPUT);
@@ -232,12 +140,10 @@ void setup()
 
   pinMode(HALL, INPUT);
   attachInterrupt(digitalPinToInterrupt(HALL), hallISR, FALLING);
-  // pinMode(BTN, INPUT_PULLUP);
 
-  button.begin(BTN);
+  button.begin(BTN, INPUT_PULLUP, 1);
   button.setLongClickTime(1500);
   button.setDoubleClickTime(750);
-
   button.setReleasedHandler(released);
   button.setClickHandler(click);
   button.setDoubleClickHandler(doubleClick);
@@ -257,143 +163,22 @@ void setup()
 
 void loop()
 {
-  button.loop();
-
   motor_driver();
   blinkers();
+
   get_battery_voltage();
-
-  if (configassist_running)
-  {
-    Config_server.handleClient();
-  }
-
-  if (conf("DISABLE_MOTOR").toInt())
-  {
-    static bool indicator_state = 1;
-
-    if (!indicator_state && stop_indicator_chrono.hasPassed(500, 1))
-    {
-      ledcWrite(STOP_ESP, 120);
-      indicator_state = 1;
-    }
-    else if (indicator_state && stop_indicator_chrono.hasPassed(500, 1))
-    {
-      ledcWrite(STOP_ESP, 255);
-      indicator_state = 0;
-    }
-  }
-
+  button.loop();
   save_odo();
 
-  // save data
-
-  /*
-    if (web_debug == 1)
+  if (configassist_running) Config_server.handleClient();
+  if (web_debug)
+  {
+    if (Serial.available())
     {
-      if (Serial.available())
-      {
-        String input = Serial.readStringUntil('\n');
-        webSerial.print(input);
-      }
-
-      if (chrono_webserial.hasPassed(1000))
-      {
-        chrono_webserial.restart();
-
-        webSerial.println("ODOMETER:");
-        webSerial.print(odo_meters);
-        webSerial.print(".");
-        if (odo_centimeters < 10) webSerial.print("0");
-        webSerial.println(odo_centimeters);
-        webSerial.println("TRIP:");
-        webSerial.print(trip_meters);
-        webSerial.print(".");
-        if (trip_centimeters < 10) webSerial.print("0");
-        webSerial.println(trip_centimeters);
-        webSerial.print("odo_pulses ");
-        webSerial.println(odo_pulses);
-        webSerial.print("trip_pulses ");
-        webSerial.println(trip_pulses);
-        webSerial.println("------------");
-      }
+      String input = Serial.readStringUntil('\n');
+      webSerial.println(input);
     }
-  */
-}
 
-void read_odo()
-{
-  if (!odometer.confExists())
-  {
-    odometer["odo_m"] = odo_meters;
-    odometer["odo_cm"] = odo_centimeters;
-    odometer["odo_pulses"] = odo_pulses;
-    odometer["trip_m"] = trip_meters;
-    odometer["trip_cm"] = trip_centimeters;
-    odometer["trip_pulses"] = trip_pulses;
-    odometer.saveConfigFile();
-  }
-
-  else
-  {
-    odo_meters = odometer("odo_m").toInt();
-    odo_centimeters = odometer("odo_cm").toInt();
-    odo_pulses = odometer("odo_pulses").toInt();
-    trip_meters = odometer("trip_m").toInt();
-    trip_centimeters = odometer("trip_cm").toInt();
-    trip_pulses = odometer("trip_pulses").toInt();
-
-    conf["odometer_readings"] = (((odo_meters * 100) + odo_centimeters) / 100.0);
-    conf["trip_readings"] = (((trip_meters * 100) + trip_centimeters) / 100.0);
-    conf["odometer_pulses"] = odo_pulses;
-    conf["trip_pulses"] = trip_pulses;
-    conf["battery_readings"] = get_battery_voltage();
-  }
-}
-
-void write_odo()
-{
-  odometer["odo_m"] = odo_meters;
-  odometer["odo_cm"] = odo_centimeters;
-  odometer["odo_pulses"] = odo_pulses;
-  odometer["trip_m"] = trip_meters;
-  odometer["trip_cm"] = trip_centimeters;
-  odometer["trip_pulses"] = trip_pulses;
-  odometer.saveConfigFile();
-
-  conf["odometer_readings"] = (((odo_meters * 100) + odo_centimeters) / 100.0);
-  conf["trip_readings"] = (((trip_meters * 100) + trip_centimeters) / 100.0);
-  conf["odometer_pulses"] = odo_pulses;
-  conf["trip_pulses"] = trip_pulses;
-  conf["battery_readings"] = get_battery_voltage();
-
-  //  Serial.println("ODOMETER:");
-  //  Serial.print(odo_meters);
-  //  Serial.print(".");
-  //  if (odo_centimeters < 10) Serial.print("0");
-  //  Serial.println(odo_centimeters);
-  //  Serial.println("TRIP:");
-  //  Serial.print(trip_meters);
-  //  Serial.print(".");
-  //  if (trip_centimeters < 10) Serial.print("0");
-  //  Serial.println(trip_centimeters);
-  //  Serial.print("odo_pulses ");
-  //  Serial.println(odo_pulses);
-  //  Serial.print("trip_pulses ");
-  //  Serial.println(trip_pulses);
-  //  Serial.println("------------");
-}
-
-void save_odo()
-{
-  if (chrono_time_in_idle.hasPassed(ODO_WRITE_INTERVAL))
-  {
-    if (update_odo == 1)
-    {
-      update_odo = 0;
-      write_odo();
-      chrono_time_in_idle.restart(512);
-      chrono_time_in_idle.stop();
-    }
+    if (chrono_webserial.hasPassed(1000, 1)) webprint();
   }
 }
