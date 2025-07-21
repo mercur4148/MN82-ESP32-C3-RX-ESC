@@ -75,7 +75,7 @@ Chrono chrono_4way;
 Chrono chrono_blinkers;
 Chrono chrono_delayed_blinkers;
 Chrono chrono_time_in_idle;
-Chrono chrono_webserial;
+Chrono chrono_webserial(Chrono::SECONDS);
 Chrono chrono_stop_indicator;
 Chrono chrono_blinkers_indicator;
 
@@ -175,12 +175,13 @@ void loop()
   if (configassist_running) Config_server.handleClient();
   if (web_debug)
   {
-    if (Serial.available())
-    {
+    /*
+      if (Serial.available())
+      {
       String input = Serial.readStringUntil('\n');
       webSerial.println(input);
-    }
-
-    if (chrono_webserial.hasPassed(1000, 1)) webprint();
+      }
+    */
+    if (chrono_webserial.hasPassed(1, 1)) webprint();
   }
 }

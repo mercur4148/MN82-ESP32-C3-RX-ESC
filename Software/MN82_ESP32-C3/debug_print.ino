@@ -5,11 +5,9 @@ bool start_webserial()
   WiFi.softAP("MN82_debug");
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
-  webSerial.onMessage([](const std::string & msg)
-  {
+  webSerial.onMessage([](const std::string & msg) {
     Serial.println(msg.c_str());
   });
-
   webSerial.begin(&Webserial_server);
   webSerial.setBuffer(255);
 
@@ -30,11 +28,40 @@ bool stop_webserial()
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
 
+  setCpuFrequencyMhz(40);
+
   web_debug = 0;
+
   return web_debug;
 }
 
 void webprint()
+{
+  webSerial.print("O: ");
+  webSerial.print(odo_meters);
+  webSerial.print(".");
+  if (odo_centimeters < 10) webSerial.print("0");
+  webSerial.print(odo_centimeters);
+  webSerial.print(" O_P: ");
+  webSerial.println(odo_pulses);
+
+  webSerial.print("T: ");
+  webSerial.print(trip_meters);
+  webSerial.print(".");
+  if (trip_centimeters < 10) webSerial.print("0");
+  webSerial.print(trip_centimeters);
+  webSerial.print(" T_P: ");
+  webSerial.println(trip_pulses);
+
+  webSerial.print("B: ");
+  webSerial.print(battery_voltage);
+  webSerial.print("V & ");
+  webSerial.print(battery_percentage);
+  webSerial.println("%");
+  webSerial.println("---");
+}
+
+void webprint_legacy()
 {
   webSerial.println("ODOMETER:");
   webSerial.print(odo_meters);
@@ -51,7 +78,10 @@ void webprint()
   webSerial.print("trip_pulses ");
   webSerial.println(trip_pulses);
   webSerial.print("BATTERY: ");
-  webSerial.println(get_battery_voltage());
+  webSerial.print(battery_voltage);
+  webSerial.print("V ");
+  webSerial.print(battery_percentage);
+  webSerial.println("%");
   webSerial.println("------------");
 }
 
