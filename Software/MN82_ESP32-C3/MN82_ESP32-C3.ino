@@ -20,7 +20,9 @@
 // lights
 const uint8_t STOP_LIGHT_BRIGHTNESS = 168;      // inverted logic
 // battery
-const uint16_t DIVIDER_RATIO = 6545;
+const float DIVIDER_RATIO = 6.4545;
+float battery_voltage = 8.40;
+float battery_percentage = 100;
 // motor
 const uint16_t PWM_FREQ = 20000;
 const uint8_t PWM_RESOLUTION = 10;
