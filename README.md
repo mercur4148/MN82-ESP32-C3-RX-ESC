@@ -5,13 +5,13 @@ https://www.reddit.com/r/mn82/comments/1ks0tar/mn82_with_a_brushed_motor_but_cus
 # Features implemented:
 1. No more 500 Hz whine from the motor - it's driven by nice 20 kHz waveforms.
 2. Blinkers are redesigned to start blinking at predefined steering values, so slight turns can be done without blinking. However, when steering is near the edges, lamps do start blinking; also, staying in leftish or rightish side for too long starts blinking too. See and adjust for yourself.
-3. Added braking when swiftly changing throttle from REVERSE to FORWARD. Stock ESC has braking logic only for fast transition of FORWARD to REVERSE.
-4. Since it's ESP32-C3, there's a Wi-Fi Access Point can be created to adjust some settings, see saved data and make OTA updates (no need to disassemble the car to make some updates).
-5. If one installs a magnet into the drivetrain and a Hall sensor next to it, the odometer can be implemented. The sensor can be connected to GPIO8 (please provide an appropriate pullup and 100 nF filtering by yourself). In my case, I've placed a 2*1 mm magnet into one of the gears in the gearbox next to the sensor; there are 12 pulses per 103 cm of run. See the code for implementation.
+3. Added braking when swiftly changing throttle from REVERSE to FORWARD. Stock ESC has braking logic only for fast transition from FORWARD to REVERSE.
+4. Since it's ESP32-C3, there's a Wi-Fi Access Point can be created to adjust some settings, see saved data and make OTA updates (no need to disassemble the car to make some updates - if you've added pushbutton first; otherwise, use ESP32's BOOT button).
+5. If one installs a magnet into the drivetrain and a Hall sensor next to it, the odometer can be implemented. The sensor can be connected to GPIO8 (please provide an appropriate pullup and 100 nF filtering by yourself). In my case, I've placed 2 pcs 2*1 mm magnet into one of the gears in the gearbox next to the sensor; there are 12 pulses per 103 cm of run. See the code for implementation.
 6. A button with an active LOW signal can be soldered to GPIO9 of ESP (I use the TTP223 touch module).
     - 1 long click clears the "trip meter";
     - 3 fast clicks toggle Wi-Fi Access Point (connect to "MN82 settings" and open 192.168.4.1 in browser) - blinkers will blink shortly to indicate the ON state. Please turn it off when everything's done by either clicking the button 3 times once again or rebooting the board;
-    - 5 fast clicks create WebSerial debug Wi-Fi Access point. Search for "MN82_debug" and open 192.168.4.1 in browser. Right now it's a bit buggy as driving with web debug enabled is laggy and unresponsive. Please avoid it or find a way to fix it yourself, don't rely on soon bugfix from me. Anyway, it's useful only for those wanting to adjust an odometer;
+    - 5 fast clicks create WebSerial debug Wi-Fi Access point. Search for "MN82_debug" and open 192.168.4.1 in browser. It's useful for those wanting to adjust an odometer or see battery voltage;
     - 7 fast clicks toggle blinkers functionality (4-way blinkers aren't affected);
     - 9 fast clicks toggle motor output (it's a good idea to disable the motor when tinkering with a car which stands on a table) - STOP lamps blink to indicate MOTOR_OFF state.
 7. Added a power MOSFET so the switch on the bottom of the car doesn't have to carry large currents.
@@ -31,4 +31,4 @@ The libraries needed are placed at the start of the sketch with a places where t
 ---
 Designed in Ukraine while listening to russian drone attacks and ballistic missiles incoming.
 
-Last update 03 July 2025
+Last update 31 July 2025
