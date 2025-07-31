@@ -22,7 +22,7 @@ void blinkers()
   // maybe I'll migrate to ISR later
   // throttled_print("SERVO", servo_width, 25);
 
-  if (configassist_running || web_debug)
+  if (configassist_running)
   {
     static bool indicator_state = 1;
 
@@ -37,6 +37,21 @@ void blinkers()
       digitalWrite(CORN_LEFT, 1);
       digitalWrite(CORN_RIGHT, 1);
       indicator_state = 0;
+    }
+  }
+  else if (web_debug)
+  {
+    // ─── 2‑flash pattern: 50‑ms ON → 50‑ms OFF → 50‑ms ON → 850‑ms OFF ───
+    static const uint16_t phaseTime[4]  = {50, 50, 50, 850};
+    static const uint8_t  phaseLevel[4] = {0, 1, 0, 1};
+    static uint8_t phase = 0;
+
+    if (chrono_blinkers_indicator.hasPassed(phaseTime[phase]))
+    {
+      phase = (phase + 1) & 0x03;          // 0→1→2→3→0  (faster than % 4)
+      digitalWrite(CORN_LEFT, phaseLevel[phase]);
+      digitalWrite(CORN_RIGHT, phaseLevel[phase]);
+      chrono_blinkers_indicator.restart();
     }
   }
   else

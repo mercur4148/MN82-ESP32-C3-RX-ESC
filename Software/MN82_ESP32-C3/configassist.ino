@@ -6,7 +6,7 @@ void onDataChanged(String key)
 
 bool configassist_start()
 {
-  setCpuFrequencyMhz(80);
+  setCpuFrequencyMhz(160);
 
   conf.setDisplayType(ConfigAssistDisplayType::AccordionToggleClosed);
   Config_server.on("/", HTTP_GET, []() {

@@ -1,4 +1,4 @@
-uint32_t get_battery_voltage()
+float get_battery_voltage()
 {
   // works as intended
   // still needs DIVIDER_RATIO adjustment
